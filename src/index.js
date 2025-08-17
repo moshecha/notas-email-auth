@@ -9,13 +9,11 @@ const nodemailer = require('nodemailer');
 
 const app = express();
 const port = process.env.PORT || 3000;
+  
 
 const pool = new Pool({
-  host: process.env.PGHOST,
-  user: process.env.PGUSER,
-  password: process.env.PGPASSWORD,
-  database: process.env.PGDATABASE,
-  port: process.env.PGPORT || 5432,
+  connectionString: process.env.DATABASE_URL, 
+  ssl: { rejectUnauthorized: false } // Fly/Postgres suele necesitar SSL
 });
 
 app.set('view engine', 'ejs');
@@ -28,10 +26,19 @@ app.use(cookieParser());
 const COOKIE_SECRET = process.env.COOKIE_SECRET || 'dev_secret_change_me';
 
 // Nodemailer transport
+// const transporter = nodemailer.createTransport({
+//   host: process.env.SMTP_HOST,
+//   port: Number(process.env.SMTP_PORT || 587),
+//   secure: Number(process.env.SMTP_PORT) === 465,
+//   auth: {
+//     user: process.env.SMTP_USER,
+//     pass: process.env.SMTP_PASS,
+//   },
+// });
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: Number(process.env.SMTP_PORT) === 465,
+  port: process.env.SMTP_PORT,
+  secure: process.env.SMTP_PORT == 465, // true si es 465 (Gmail recomendado)
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -196,6 +203,40 @@ app.post('/api/nota/borrar', authMiddleware, async (req, res) => {
   const { id } = req.body;
   await pool.query('DELETE FROM notes WHERE id=$1 AND user_id=$2', [id, req.user.id]);
   res.json({ ok: true });
+});
+// API - test
+app.get('/test', authMiddleware, async (req, res) => {
+  // if (!req.user) return res.status(401).json({ ok: false });
+  // const { id } = req.body;
+  let responseDb = await pool.query(`
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  code_hash TEXT NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE,
+  used BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS notes (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  content TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS ix_tokens_user ON tokens(user_id);
+CREATE INDEX IF NOT EXISTS ix_notes_user ON notes(user_id);
+
+    `);
+  res.json({ responseDb, ok: true });
 });
 
 // API - obtener todas por user
