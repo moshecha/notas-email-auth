@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Login por email - Notas</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main style="max-width:720px;margin:40px auto;font-family:system-ui,Arial;">
+    <h1>Iniciar sesión / Registrarse</h1>
+    <% if (message) { %><p><%= message %></p><% } %>
+    <form action="/auth/send-code" method="post">
+      <label>Email</label><br/>
+      <input name="email" type="email" required style="padding:8px;width:100%;max-width:360px;margin-bottom:10px"/>
+      <button type="submit" style="padding:10px 14px;">Enviar código por email</button>
+    </form>
+  </main>
+</body>
+</html>
